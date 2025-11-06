@@ -1,0 +1,34 @@
+# Dependencies and build artifacts
+node_modules/
+artifacts/
+cache/
+.typechain/
+.typechain-types/
+.env
+
+# Remix / Hardhat temporary files
+*.zip
+*.tar.gz
+*.tmp
+*.log
+
+# IDE files
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Compiled binaries
+*.bin
+*.abi
+
+# Backup files
+*~
+*.bak
+
+# OS and OneDrive temporary files
+Thumbs.db
+desktop.ini
+*.lnk
+~$*
+.oneDrive
