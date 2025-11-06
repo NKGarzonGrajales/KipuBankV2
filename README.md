@@ -195,7 +195,7 @@ Proyecto bajo la licencia MIT.
 👩‍💻 Autora
 
 Desarrollado por N.K.G.G. (Nidia Karina Garzón Grajales)
-ETH Kipu – Módulo 3: Contratos Inteligentes (Proyecto Final)
+ETH Kipu – Módulo 3 
 
 ## 💡 Recomendación
 

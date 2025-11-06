@@ -199,4 +199,4 @@ This project is licensed under the MIT License.
 👩‍💻 Author
 
 Developed by N.K.G.G. (Nidia Karina Garzón Grajales)
-ETH Kipu – Module 3: Smart Contracts (Final Project)
+ETH Kipu – Module 3: (TP)
