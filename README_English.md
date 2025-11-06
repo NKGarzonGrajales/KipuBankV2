@@ -47,7 +47,6 @@ constructor(
     uint256 _initialEthWithdrawCap
 )
 
-
 | Parameter                | Value used on Sepolia                        |
 | ------------------------ | -------------------------------------------- |
 | `_oracle`                | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
@@ -85,28 +84,61 @@ Custom errors improve gas efficiency and debugging clarity.
 
 Simple Ownable structure used instead of complex role management for beginner clarity.
 
-🧪 Test Summary
-🧱 ETH
+🧪 Test Summary (Sepolia)
+🧱 ETH — Native Token
+| Test                     | Action                       | Result                |
+| ------------------------ | ---------------------------- | --------------------- |
+| Deposit ETH              | `depositETH()` with 0.02 ETH | ✅ Success             |
+| Withdraw ETH             | `withdrawETH(0.0003 ETH)`    | ✅ Success             |
+| Revert Exceeding USD Cap | Attempt > cap                | ⚠️ Correctly reverted |
+| Total ETH Deposited      | `400000000000000005` wei     | ✅ Matches expected    |
 
-Deposit: 0.02 ETH → ✅ Success
 
-Withdraw: 0.0003 ETH → ✅ Success
+USD Oracle Value:
+getETHPriceUSD_8d() → 325670622552 ≈ $3,256.70 per ETH
 
-Revert on exceeding USD cap → ✅ Expected
 
-💰 Mock Tokens
+💰 ERC-20 Tokens — Mock DAI and Mock USDC
 
-Tested with MockDAI and MockUSDC.
+🪙 MockDAI
 
-Minted, deposited, and withdrew successfully.
+| Step              | Function                                   | Value / Result        |
+| ----------------- | ------------------------------------------ | --------------------- |
+| Deployment        | `MockDAI.sol`                              | ✅ Successful          |
+| Minting           | `mint(user, 200000000000000000)` (0.2 DAI) | ✅ Success             |
+| Approval          | `approve(KipuBankV2, 200000000000000000)`  | ✅ Success             |
+| Deposit           | `depositToken(MockDAI, 10000000000000000)` | ✅ Success             |
+| View Balance      | `viewBalance(user, MockDAI)`               | `10000000000000000`   |
+| Withdraw          | `withdrawToken(MockDAI, 5000000000000000)` | ✅ Success             |
+| Revert Exceed Cap | Attempt > withdrawCap                      | ⚠️ Correctly reverted |
 
-Reverts when caps are exceeded → ✅ Correct behavior
+Final DAI Balance in Vault:
+5000000000000000 (0.005 DAI remaining)
+
+
+🪙 MockUSDC
+
+| Step              | Function                                            | Value / Result        |
+| ----------------- | --------------------------------------------------- | --------------------- |
+| Deployment        | `MockUSDC.sol`                                      | ✅ Successful          |
+| Minting           | `mint(user, 3000000)` (3 USDC, assuming 6 decimals) | ✅ Success             |
+| Approval          | `approve(KipuBankV2, 3000000)`                      | ✅ Success             |
+| Deposit           | `depositToken(MockUSDC, 1000000)`                   | ✅ Success             |
+| View Balance      | `viewBalance(user, MockUSDC)`                       | `1000000`             |
+| Withdraw          | `withdrawToken(MockUSDC, 500000)`                   | ✅ Success             |
+| Revert Exceed Cap | Attempt > withdrawCap                               | ⚠️ Correctly reverted |
+
+Final USDC Balance in Vault:
+500000 (0.5 USDC remaining)
 
 📉 Oracle Integration
 
-getETHPriceUSD_8d() returned 325670622552 (~$3,256.70/ETH).
+Chainlink ETH/USD Oracle (Sepolia):
+0x694AA1769357215DE4FAC081bf1f309aDC325306
 
-ETH/USD cap enforcement worked as intended.
+Returned price (8 decimals): 325670622552
+
+Verified correct conversion for ETH/USD cap in all deposit operations.
 
 
 📊 Final Contract State (Sepolia Verified)
@@ -119,8 +151,8 @@ ETH/USD cap enforcement worked as intended.
 | Withdraw Cap        | `20000000000000000` (0.02 ETH)               |
 | USD Cap             | `100000000000` ($1,000, 8 decimals)          |
 | Total ETH Deposited | `400000000000000005`                         |
-| Token Tested        | `MockDAI`, `MockUSDC`                        |
-
+| Tokens Tested       | `MockDAI`, `MockUSDC`                        |
+| Network             | Sepolia Testnet                              |
 
 🚀 Deployment & Verification Steps
 🧩 Compile
@@ -132,7 +164,6 @@ EVM: Shanghai
 Optimizer: ON (200 runs)
 
 🧱 Deploy to Sepolia
-
 | Parameter                | Example Value                                |
 | ------------------------ | -------------------------------------------- |
 | `_oracle`                | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
@@ -151,15 +182,15 @@ Compiler: Solidity 0.8.24
 
 Constructor arguments: same as deployment above.
 
+
 🌐 Contract Addresses
 
-| Contract                        | Address                                      |
-| ------------------------------- | -------------------------------------------- |
-| **KipuBankV2 (Sepolia)**        | `0x259F2AcE582C19436268f4dE17B09a0EE92C6E8`  |
-| **Chainlink ETH/USD (Sepolia)** | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
-| **MockDAI**                     | `0x69A4A1769357215DE4FAC081bf1f309aDC325306` |
-| **MockUSDC**                    | `0x259F2AcE582C19436268f4dE17B09a0EE92C6E8`  |
-
+| Contract                        | Address                                       |
+| ------------------------------- | --------------------------------------------- |
+| **KipuBankV2 (Sepolia)**        | `0x259F2AcE582C19436268f4dE17B09a0EE92C6E8`   |
+| **Chainlink ETH/USD (Sepolia)** | `0x694AA1769357215DE4FAC081bf1f309aDC325306`  |
+| **MockDAI**                     | `0x9ad21efa0611d2e2e6d3c803660755bda2d95000`  |
+| **MockUSDC**                    | `0x09ad21efa0611d2e2e6d3c803660755bda2d95000` |
 
 📜 License
 
@@ -169,4 +200,3 @@ This project is licensed under the MIT License.
 
 Developed by N.K.G.G. (Nidia Karina Garzón Grajales)
 ETH Kipu – Module 3: Smart Contracts (Final Project)
-

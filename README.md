@@ -1,39 +1,51 @@
 # 🏦 KipuBankV2
 
 ### Descripción general
-**KipuBankV2** es un contrato inteligente desarrollado como parte del **Módulo 3** del programa ETH Kipu.  
-El contrato implementa un **banco/vault descentralizado** que permite depósitos y retiros tanto en **ETH nativo** como en **tokens ERC20**, controlando límites por token y un límite global en USD mediante un **oráculo Chainlink**.
+**KipuBankV2** es un contrato inteligente desarrollado como parte del **Módulo 3 de ETH Kipu**.  
+Implementa un **banco o bóveda multi-activo**, que permite depósitos y retiros de **ETH y tokens ERC-20**, con límites globales y por transacción, además de un límite en USD utilizando un **oráculo Chainlink**.
+
+Esta versión mejora al contrato anterior al incluir:
+- Soporte multi-token (ETH + ERC-20)
+- Límites globales, por token y por transacción
+- Límite global en USD según el precio ETH/USD de Chainlink
+- Errores personalizados (`custom errors`)
+- Patrón **CEI (Checks–Effects–Interactions)**
+- Uso de **SafeERC20** para transferencias seguras
+- Integración de **Ownable** para control administrativo
 
 ---
 
 ## 🔐 Control de acceso
-- Uso de **Ownable (OpenZeppelin)**: solo el owner (deploy address) puede actualizar oráculo o límites.
-- `msg.sender` del constructor se establece como `owner`.
+- Usa **Ownable** de OpenZeppelin.
+- Solo el **propietario (deployer)** puede modificar:
+  - La dirección del oráculo Chainlink.
+  - El límite global en USD.
+  - Los límites de depósito y retiro por token.
 
 ---
 
-## 🧩 Dependencias utilizadas
+## 🧩 Dependencias
 - `@openzeppelin/contracts/access/Ownable.sol`
 - `@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol`
 - `@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol`
 
 ---
 
-## ⚙️ Variables clave
+## ⚙️ Variables principales
 
 | Variable | Descripción |
-|-----------|--------------|
-| `NATIVE` | Representa ETH (`address(0)`) |
-| `balances` | Mapeo anidado: usuario → token → balance |
-| `totalDepositedPerToken` | Suma global por token |
-| `bankCapPerToken` | Límite global por token |
-| `withdrawCapPerToken` | Límite de retiro por transacción |
-| `bankCapUsdETH` | Límite global en USD (8 decimales) |
-| `priceFeed` | Oráculo ETH/USD de Chainlink |
+|-----------|-------------|
+| `NATIVE` | Representa ETH usando `address(0)`. |
+| `balances` | Mapping anidado: usuario → token → balance. |
+| `totalDepositedPerToken` | Suma total de depósitos por token. |
+| `bankCapPerToken` | Límite global por token (en wei o unidad mínima). |
+| `withdrawCapPerToken` | Límite de retiro por transacción. |
+| `bankCapUsdETH` | Límite global en USD para el TVL de ETH (8 decimales). |
+| `priceFeed` | Oráculo Chainlink ETH/USD. |
 
 ---
 
-## 🧠 Constructor y parámetros iniciales
+## 🧠 Parámetros del constructor
 
 ```solidity
 constructor(
@@ -41,139 +53,149 @@ constructor(
     uint256 _bankCapUsdETH,
     uint256 _initialEthBankCap,
     uint256 _initialEthWithdrawCap
-) Ownable(msg.sender)
+)
 
-Parámetros usados en el despliegue (Sepolia Testnet):
+| Parámetro                | Valor (Sepolia)                              |
+| ------------------------ | -------------------------------------------- |
+| `_oracle`                | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
+| `_bankCapUsdETH`         | `0`                                          |
+| `_initialEthBankCap`     | `1550000000000000000` (1.55 ETH)             |
+| `_initialEthWithdrawCap` | `20000000000000000` (0.02 ETH)               |
 
-_oracle: 0x694AA1769357215DE4FAC081bf1f309aDC325306
+💡 Funciones principales
+| Función                                                                | Descripción                                                   |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `depositETH()`                                                         | Deposita ETH nativo en la bóveda.                             |
+| `withdrawETH(uint256 amount)`                                          | Retira ETH respetando el límite por transacción.              |
+| `depositToken(address token, uint256 amount)`                          | Deposita tokens ERC-20 (requiere aprobación previa).          |
+| `withdrawToken(address token, uint256 amount)`                         | Retira tokens ERC-20.                                         |
+| `viewBalance(address user, address token)`                             | Consulta el balance de un usuario.                            |
+| `getETHPriceUSD_8d()`                                                  | Obtiene el precio ETH/USD desde Chainlink (8 decimales).      |
+| `setCapsForToken(address token, uint256 bankCap, uint256 withdrawCap)` | Actualiza los límites por token.                              |
+| `setBankCapUsdETH(uint256 newCapUsd8d)`                                | Configura el límite global en USD.                            |
+| `setOracle(address newOracle)`                                         | Actualiza la dirección del oráculo.                           |
+| `rescueERC20(address token, uint256 amount, address to)`               | Permite al administrador recuperar tokens enviados por error. |
+| `rescueETH(uint256 amount, address to)`                                | Permite al administrador recuperar ETH enviados por error.    |
 
-_bankCapUsdETH: 0
+🧩 Decisiones de diseño (Trade-offs)
 
-_initialEthBankCap: 1550000000000000000 (≈ 1.55 ETH)
+Manejo unificado de ETH y ERC-20 (ETH representado por address(0)).
 
-_initialEthWithdrawCap: 20000000000000000 (≈ 0.02 ETH)
+Uso de SafeERC20 para evitar errores en transferencias de tokens.
 
-| Función                                                                | Descripción                                          |
-| ---------------------------------------------------------------------- | ---------------------------------------------------- |
-| `depositETH()`                                                         | Deposita ETH (usa `msg.value`).                      |
-| `withdrawETH(uint256 amount)`                                          | Retira ETH si cumple los límites.                    |
-| `depositToken(address token, uint256 amount)`                          | Deposita tokens ERC20.                               |
-| `withdrawToken(address token, uint256 amount)`                         | Retira tokens ERC20.                                 |
-| `viewBalance(address user, address token)`                             | Consulta balance de usuario y token.                 |
-| `getETHPriceUSD_8d()`                                                  | Devuelve precio ETH/USD con 8 decimales (Chainlink). |
-| `setCapsForToken(address token, uint256 bankCap, uint256 withdrawCap)` | Define límites globales y por retiro.                |
-| `setBankCapUsdETH(uint256 newCapUsd8d)`                                | Define el cap global en USD.                         |
-| `setOracle(address newOracle)`                                         | Permite cambiar el oráculo Chainlink.                |
+Patrón CEI (Checks–Effects–Interactions) en todas las funciones críticas.
 
-💡 Decisiones de diseño (Trade-offs)
+Errores personalizados para reducir consumo de gas.
 
-Se utilizó SafeERC20 para evitar errores con tokens no estándar.
+Uso de un solo rol administrativo (Ownable) para mantener la simplicidad.
 
-Se representa ETH con address(0) para unificar lógica con tokens ERC20.
+🧪 Resumen de pruebas
+🧱 Pruebas con ETH
+| Acción                        | Valor                             | Resultado    |
+| ----------------------------- | --------------------------------- | ------------ |
+| Depósito                      | 0.02 ETH                          | ✅ Exitoso    |
+| Consulta de saldo             | `29700000000000000` (≈0.0297 ETH) | ✅ Correcto   |
+| Retiro                        | 0.0003 ETH                        | ✅ Exitoso    |
+| Retiro con saldo insuficiente | > 0.03 ETH                        | ⚠️ Revertido |
+| Precio del oráculo            | `325670622552` (~$3,256.70/ETH)   | ✅ Correcto   |
+| Límite en USD (bankCapUsdETH) | Reversión correcta al exceder     | ✅ Verificado |
 
-Se priorizó la claridad y seguridad sobre la optimización extrema de gas.
+💰 Tokens ERC-20: MockDAI y MockUSDC
 
-Implementación de CEI (Checks–Effects–Interactions).
+Ambos tokens fueron probados con mint, approve, deposit y withdraw.
 
-Uso de custom errors para mejorar la eficiencia y legibilidad.
+⚙️ Parámetros de los tokens
+| Token        | Decimales | Símbolo | Monto inicial |
+| ------------ | --------- | ------- | ------------- |
+| **MockDAI**  | 18        | DAI     | 0.2 DAI       |
+| **MockUSDC** | 6         | USDC    | 0.2 USDC      |
 
-🧪 Pruebas realizadas (Remix y Etherscan)
-🧱 ETH:
+🧩 Pruebas con MockDAI
+| Paso | Acción                              | Valor              | Resultado    |
+| ---- | ----------------------------------- | ------------------ | ------------ |
+| 1️⃣  | `mint(msg.sender, 0.2 DAI)`         | 0.2 DAI            | ✅ Éxito      |
+| 2️⃣  | `approve(KipuBankV2, 0.2 DAI)`      | 200000000000000000 | ✅ Aprobado   |
+| 3️⃣  | `depositToken(MockDAI, 0.01 DAI)`   | 10000000000000000  | ✅ Éxito      |
+| 4️⃣  | `viewBalance(user, MockDAI)`        | 0.01 DAI           | ✅ Correcto   |
+| 5️⃣  | `withdrawToken(MockDAI, 0.005 DAI)` | 5000000000000000   | ✅ Éxito      |
+| 6️⃣  | Prueba de límite excedido           | > 0.2 DAI          | ⚠️ Revertido |
 
-Depósito: depositETH() con 0.02 ETH → ✅ exitoso.
+💵 Pruebas con MockUSDC
+| Paso | Acción                           | Valor             | Resultado    |
+| ---- | -------------------------------- | ----------------- | ------------ |
+| 1️⃣  | `mint(msg.sender, 200000)`       | 0.2 USDC          | ✅ Éxito      |
+| 2️⃣  | `approve(KipuBankV2, 200000)`    | 0.2 USDC          | ✅ Aprobado   |
+| 3️⃣  | `depositToken(MockUSDC, 100000)` | 0.1 USDC          | ✅ Éxito      |
+| 4️⃣  | `viewBalance(user, MockUSDC)`    | 100000 (0.1 USDC) | ✅ Correcto   |
+| 5️⃣  | `withdrawToken(MockUSDC, 50000)` | 0.05 USDC         | ✅ Éxito      |
+| 6️⃣  | Prueba de límite excedido        | > BankCap         | ⚠️ Revertido |
 
-Visualización: viewBalance() devolvió 400000000000000005 wei.
+📉 Integración con el oráculo
 
-Retiro: withdrawETH(0.0003 ETH) → ✅ exitoso.
+Dirección del oráculo: 0x694AA1769357215DE4FAC081bf1f309aDC325306
 
-Reversión: al exceder bankCapUsdETH bajo, → revert correcto.
+Función utilizada: getETHPriceUSD_8d()
 
-💰 Tokens (MockDAI):
+Último valor retornado: 325670622552 (8 decimales).
 
-Mint: 0.2 MockDAI → ✅ exitoso.
+Usado para calcular el límite en USD del TVL de ETH.
 
-Approve: approve(KipuBankV2, 0.2 DAI) → ✅ exitoso.
+📊 Estado final del contrato (Sepolia verificado)
+| Campo                     | Valor                                        |
+| ------------------------- | -------------------------------------------- |
+| **Contrato**              | `KipuBankV2`                                 |
+| **Propietario**           | `0xeFCD678F3E8Ba831787b6eb41ea8A618674B1d8`  |
+| **Oráculo**               | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
+| **Límite global ETH**     | `1550000000000000000` (1.55 ETH)             |
+| **Límite de retiro ETH**  | `20000000000000000` (0.02 ETH)               |
+| **Límite en USD (ETH)**   | `100000000000` ($1,000, 8 decimales)         |
+| **ETH total depositado**  | `400000000000000005`                         |
+| **DAI total depositado**  | `10000000000000000`                          |
+| **USDC total depositado** | `100000`                                     |
+| **Red de despliegue**     | Sepolia (verificado en Etherscan)            |
 
-Depósito: depositToken(MockDAI, 0.01 DAI) → ✅ exitoso.
+🚀 Despliegue y verificación
+🔧 Compilación
 
-Retiro: withdrawToken(MockDAI, 0.005 DAI) → ✅ exitoso.
-
-📉 Cap USD (con oráculo)
-
-Oráculo ETH/USD: getETHPriceUSD_8d() → 325670622552 (≈ $3,256.70/ETH).
-
-Revert correcto al usar bankCapUsdETH = 30000000 ($0.30).
-
-Depósito exitoso tras subir a 100000000000 ($1,000).
-
-📊 Estado final del contrato (verificado en Sepolia)
-Campo	Valor
-Owner	0xeFCD678F3E8Ba831787b6eb41ea8A618674B1d8
-Oráculo	0x694AA1769357215DE4FAC081bf1f309aDC325306
-Cap global ETH	1550000000000000000 (1.55 ETH)
-Cap retiro ETH	20000000000000000 (0.02 ETH)
-Cap USD ETH	100000000000 ($1,000 con 8 decimales)
-Total depositado ETH	400000000000000005
-Token probado	MockDAI
-🚀 Instrucciones de despliegue
-
-Compilación:
-
-Solidity versión: 0.8.24
+Versión Solidity: 0.8.24
 
 EVM: Shanghai
 
-Optimizer: ON (200 runs)
+Optimizador: Activado (200 runs)
 
-Despliegue en Sepolia:
+⚙️ Parámetros de despliegue
+| Parámetro                | Valor                                        |
+| ------------------------ | -------------------------------------------- |
+| `_oracle`                | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
+| `_bankCapUsdETH`         | `0`                                          |
+| `_initialEthBankCap`     | `1550000000000000000`                        |
+| `_initialEthWithdrawCap` | `20000000000000000`                          |
 
-_oracle → 0x694AA1769357215DE4FAC081bf1f309aDC325306
+🔍 Verificación en Etherscan
 
-_bankCapUsdETH → 0
+Archivo: KipuBankV2_flattened.sol
 
-_initialEthBankCap → 1550000000000000000
+Compilador: Solidity 0.8.24
 
-_initialEthWithdrawCap → 20000000000000000
+Licencia: MIT
 
-Verificación en Etherscan:
+Argumentos: mismos del constructor.
 
-Flattened KipuBankV2_flattened.sol
-
-License: MIT
-
-Constructor arguments: mismos que arriba
-
-Interacción:
-
-Read/Write Contract o Remix
-
-Para ETH usar Value en wei
-
-Para tokens usar approve antes de depositar
-
-🌐 Direcciones de despliegue
-
-Contrato principal (Sepolia):
-0x259F2AcE582C19436268f4dE17B09a0EE92C6E8
-
-Oráculo Chainlink ETH/USD (Sepolia):
-0x694AA1769357215DE4FAC081bf1f309aDC325306
-
-MockDAI:
-0x69A4A1769357215DE4FAC081bf1f309aDC325306 (contrato de prueba ERC20)
-
+🌐 Direcciones de contrato (Sepolia)
+| Contrato                      | Dirección                                    |
+| ----------------------------- | -------------------------------------------- |
+| **KipuBankV2**                | `0x259F2AcE582C19436268f4dE17B09a0EE92C6E8`  |
+| **Oráculo Chainlink ETH/USD** | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
+| **MockDAI**                   | `0x69A4A1769357215DE4FAC081bf1f309aDC325306` |
+| **MockUSDC**                  | `0x7b0E17bBdB3173aD186cbE8B9b7e3a87482Dc43f` |
 📜 Licencia
 
-Este proyecto está bajo la licencia MIT.
+Proyecto bajo la licencia MIT.
 
-🧾 Créditos
+👩‍💻 Autora
 
 Desarrollado por N.K.G.G. (Nidia Karina Garzón Grajales)
-Como entrega oficial del Módulo 3 — ETH Kipu: Smart Contracts.
-Instituto: Soy Henry / ETH Kipu.
-
-
----
+ETH Kipu – Módulo 3: Contratos Inteligentes (Proyecto Final)
 
 ## 💡 Recomendación
 
