@@ -1,14 +1,18 @@
 # 🏦 KipuBankV2
 
 ### Overview
-**KipuBankV2** is a smart contract developed as part of **Module 3 – ETH Kipu**.  
-It implements a **multi-asset vault/bank** that allows deposits and withdrawals of **ETH and ERC20 tokens**, with both per-token and global USD limits enforced via a **Chainlink oracle**.
+**KipuBankV2** is a smart contract developed as part of **ETH Kipu – Module 3**.  
+It implements a **multi-asset vault/bank** that allows deposits and withdrawals of **ETH and ERC-20 tokens**, with both per-token and global USD limits enforced through a **Chainlink oracle**.
+
+This version includes improved access control, global and per-transaction caps, and a USD cap linked to the ETH/USD oracle price feed.
 
 ---
 
 ## 🔐 Access Control
-- Built with OpenZeppelin’s **Ownable** contract.
-- Only the **owner (deployer)** can modify the oracle address or the deposit/withdrawal limits.
+- Uses OpenZeppelin’s **Ownable** contract.  
+- Only the **owner (deployer)** can modify:
+  - The Chainlink oracle address.
+  - The USD cap and per-token caps.
 
 ---
 
@@ -23,13 +27,13 @@ It implements a **multi-asset vault/bank** that allows deposits and withdrawals 
 
 | Variable | Description |
 |-----------|-------------|
-| `NATIVE` | Represents ETH (`address(0)`). |
-| `balances` | Nested mapping user → token → balance. |
+| `NATIVE` | Represents ETH using `address(0)`. |
+| `balances` | Nested mapping of user → token → balance. |
 | `totalDepositedPerToken` | Tracks total deposits per token. |
 | `bankCapPerToken` | Global cap per token. |
-| `withdrawCapPerToken` | Per-transaction withdrawal cap. |
-| `bankCapUsdETH` | Global USD cap (8 decimals). |
-| `priceFeed` | Chainlink ETH/USD oracle. |
+| `withdrawCapPerToken` | Withdrawal cap per transaction. |
+| `bankCapUsdETH` | Global USD cap for ETH (8 decimals). |
+| `priceFeed` | Chainlink ETH/USD price oracle. |
 
 ---
 
@@ -43,6 +47,7 @@ constructor(
     uint256 _initialEthWithdrawCap
 )
 
+
 | Parameter                | Value used on Sepolia                        |
 | ------------------------ | -------------------------------------------- |
 | `_oracle`                | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
@@ -50,91 +55,111 @@ constructor(
 | `_initialEthBankCap`     | `1550000000000000000` (1.55 ETH)             |
 | `_initialEthWithdrawCap` | `20000000000000000` (0.02 ETH)               |
 
-| Function                                                               | Description                             |
-| ---------------------------------------------------------------------- | --------------------------------------- |
-| `depositETH()`                                                         | Allows ETH deposits (`msg.value`).      |
-| `withdrawETH(uint256 amount)`                                          | Withdraws ETH if limits are met.        |
-| `depositToken(address token, uint256 amount)`                          | Deposits ERC20 tokens.                  |
-| `withdrawToken(address token, uint256 amount)`                         | Withdraws ERC20 tokens.                 |
-| `viewBalance(address user, address token)`                             | Checks balance by user/token.           |
-| `getETHPriceUSD_8d()`                                                  | Returns the ETH/USD price (8 decimals). |
-| `setCapsForToken(address token, uint256 bankCap, uint256 withdrawCap)` | Sets per-token caps.                    |
-| `setBankCapUsdETH(uint256 newCapUsd8d)`                                | Sets global USD cap.                    |
-| `setOracle(address newOracle)`                                         | Updates oracle address.                 |
+
+💡 Main Functions
+
+| Function                                                               | Description                                       |
+| ---------------------------------------------------------------------- | ------------------------------------------------- |
+| `depositETH()`                                                         | Allows ETH deposits (`msg.value`).                |
+| `withdrawETH(uint256 amount)`                                          | Withdraws ETH if limits are met.                  |
+| `depositToken(address token, uint256 amount)`                          | Deposits ERC-20 tokens (after approval).          |
+| `withdrawToken(address token, uint256 amount)`                         | Withdraws ERC-20 tokens.                          |
+| `viewBalance(address user, address token)`                             | Returns the user’s balance by token.              |
+| `getETHPriceUSD_8d()`                                                  | Returns the ETH/USD price (8 decimals).           |
+| `setCapsForToken(address token, uint256 bankCap, uint256 withdrawCap)` | Updates token caps.                               |
+| `setBankCapUsdETH(uint256 newCapUsd8d)`                                | Updates global USD cap.                           |
+| `setOracle(address newOracle)`                                         | Updates the Chainlink oracle address.             |
+| `rescueERC20(address token, uint256 amount, address to)`               | Allows admin to recover tokens accidentally sent. |
+| `rescueETH(uint256 amount, address to)`                                | Allows admin to recover ETH accidentally sent.    |
+
 
 🧩 Design Decisions (Trade-offs)
 
-SafeERC20 used for token safety.
-
 ETH handled as address(0) for unified logic.
 
-Clear code over gas optimization.
+SafeERC20 ensures safer ERC-20 transfers.
 
-CEI (Checks–Effects–Interactions) pattern used.
+CEI (Checks–Effects–Interactions) pattern applied throughout.
 
-Custom errors for clarity and efficiency.
+Custom errors improve gas efficiency and debugging clarity.
 
-🧪 Tests Summary
+Simple Ownable structure used instead of complex role management for beginner clarity.
+
+🧪 Test Summary
 🧱 ETH
 
-Deposit 0.02 ETH → ✅ success.
+Deposit: 0.02 ETH → ✅ Success
 
-Withdraw 0.0003 ETH → ✅ success.
+Withdraw: 0.0003 ETH → ✅ Success
 
-Revert on low USD cap → ✅ correct.
+Revert on exceeding USD cap → ✅ Expected
 
 💰 Mock Tokens
 
-Minted and deposited MockDAI (0.2 → 0.01).
+Tested with MockDAI and MockUSDC.
 
-Withdrawn 0.005 DAI → ✅ success.
+Minted, deposited, and withdrew successfully.
+
+Reverts when caps are exceeded → ✅ Correct behavior
 
 📉 Oracle Integration
 
 getETHPriceUSD_8d() returned 325670622552 (~$3,256.70/ETH).
 
-bankCapUsdETH enforcement tested successfully.
+ETH/USD cap enforcement worked as intended.
+
 
 📊 Final Contract State (Sepolia Verified)
-Field	Value
-Owner	0xeFCD678F3E8Ba831787b6eb41ea8A618674B1d8
-Oracle	0x694AA1769357215DE4FAC081bf1f309aDC325306
-Cap ETH	1550000000000000000 (1.55 ETH)
-Withdraw Cap	20000000000000000 (0.02 ETH)
-USD Cap	100000000000 ($1,000, 8 decimals)
-Total ETH Deposited	400000000000000005
-Token Tested	MockDAI
-🚀 Deployment Instructions
 
-Compile:
+| Field               | Value                                        |
+| ------------------- | -------------------------------------------- |
+| Owner               | `0xeFCD678F3E8Ba831787b6eb41ea8A618674B1d8`  |
+| Oracle              | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
+| Bank Cap (ETH)      | `1550000000000000000` (1.55 ETH)             |
+| Withdraw Cap        | `20000000000000000` (0.02 ETH)               |
+| USD Cap             | `100000000000` ($1,000, 8 decimals)          |
+| Total ETH Deposited | `400000000000000005`                         |
+| Token Tested        | `MockDAI`, `MockUSDC`                        |
 
-Solidity 0.8.24, EVM Shanghai, Optimizer ON (200 runs).
 
-Deploy to Sepolia:
+🚀 Deployment & Verification Steps
+🧩 Compile
 
-_oracle → 0x694AA1769357215DE4FAC081bf1f309aDC325306
+Solidity version: 0.8.24
 
-_bankCapUsdETH → 0
+EVM: Shanghai
 
-_initialEthBankCap → 1550000000000000000
+Optimizer: ON (200 runs)
 
-_initialEthWithdrawCap → 20000000000000000
+🧱 Deploy to Sepolia
 
-Verify on Etherscan:
+| Parameter                | Example Value                                |
+| ------------------------ | -------------------------------------------- |
+| `_oracle`                | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
+| `_bankCapUsdETH`         | `0`                                          |
+| `_initialEthBankCap`     | `1550000000000000000`                        |
+| `_initialEthWithdrawCap` | `20000000000000000`                          |
 
-Flattened file KipuBankV2_flattened.sol
+
+🔍 Verify on Etherscan
+
+Contract: KipuBankV2_flattened.sol
 
 License: MIT
 
-Constructor args: same as above
+Compiler: Solidity 0.8.24
 
-🌐 Addresses
+Constructor arguments: same as deployment above.
 
-KipuBankV2 (Sepolia): 0x259F2AcE582C19436268f4dE17B09a0EE92C6E8
+🌐 Contract Addresses
 
-Chainlink ETH/USD (Sepolia): 0x694AA1769357215DE4FAC081bf1f309aDC325306
+| Contract                        | Address                                      |
+| ------------------------------- | -------------------------------------------- |
+| **KipuBankV2 (Sepolia)**        | `0x259F2AcE582C19436268f4dE17B09a0EE92C6E8`  |
+| **Chainlink ETH/USD (Sepolia)** | `0x694AA1769357215DE4FAC081bf1f309aDC325306` |
+| **MockDAI**                     | `0x69A4A1769357215DE4FAC081bf1f309aDC325306` |
+| **MockUSDC**                    | `0x259F2AcE582C19436268f4dE17B09a0EE92C6E8`  |
 
-MockDAI: 0x69A4A1769357215DE4FAC081bf1f309aDC325306
 
 📜 License
 
@@ -143,4 +168,5 @@ This project is licensed under the MIT License.
 👩‍💻 Author
 
 Developed by N.K.G.G. (Nidia Karina Garzón Grajales)
-ETH Kipu – Module 3: Smart Contracts
+ETH Kipu – Module 3: Smart Contracts (Final Project)
+
